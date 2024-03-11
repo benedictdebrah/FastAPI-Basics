@@ -3,41 +3,32 @@ from typing import Optional
 from pydantic import BaseModel
 from fastapi.params import Body
 from random import randrange
-
+import psycopg
+from psycopg.rows import dict_row
+import time
 #instantiating the class
 app = FastAPI()
 
 class Post(BaseModel):
     title : str
     content : str
-    published : Optional[bool] = True
-    rating : Optional[int] = None
+    published : bool = True
+
+#making connection to the database
+while True:
+    try:
+        conn = psycopg.connect(host='localhost', dbname='fastapi', user='posttest', 
+                            password='test1234', row_factory=dict_row)
+        cursor = conn.cursor()
+        print('Databse connection was successful')
+        break
+
+    except Exception as error:
+        print('databse connection failed')
+        print('error :', error)
+        time.sleep(2)
 
 
-#to store values
-my_posts = [
-       {"title" : "my favourite food",
-     "content" : "my favourite food is fufu and abenkwan",
-     "rating" : 5,
-     "id" : 2},
-      {"title" : "my favourite game",
-     "content" : "my favourite game is minecraft",
-     "rating" : 7,
-     "id" : 4}
-]
-
-# function to find_by _index
-def find_post(id):
-    for i in my_posts:
-        if i['id'] == id:
-            return i
-        
-
-#function to delete post
-def find_index_post(id):
-    for i, p in enumerate(my_posts):
-        if p['id'] == id:
-            return i
 
 
 #GET OPERATIONS
@@ -48,38 +39,34 @@ def root():
 #get all post
 @app.get("/posts/")
 def get_post():
-    return {
-        "data" : my_posts
-    }
+    cursor.execute("""SELECT * FROM  posts""")
+    posts = cursor.fetchall()
+    return {"data" : posts}
+
+
+
+
+#POST OPERTIONS
+@app.post("/posts/",status_code=status.HTTP_201_CREATED)
+def create_post(new : Post):
+    cursor.execute("""INSERT INTO posts (title, content, published) VALUES(%s, %s, %s) RETURNING * """,
+                   (new.title, new.content, new.published))
+    new_post = cursor.fetchone()
+    conn.commit()
+    return {"message" : "Post created successfully", "data" : new_post}
 
 
 #retrieving an individual 
 @app.get("/posts/{id}")
 def get_post(id : int):
-    post = find_post(id)
+    cursor.execute("""SELECT * FROM posts WHERE id = %s """,(str(id),))
+    post = cursor.fetchone()
 
-    #invalid id
     if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Post with id {id} was not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                             detail=f"Post with id {id} was not found")
 
-
-    print(post)
     return {"post detail" : post}
-
-
-
-#POST OPERTIONS
-@app.post("/posts/")
-def create_post(new : Post):
-    new_dict = new.dict()
-    new_dict['id'] = randrange(1,1000000)
-    my_posts.append(new_dict)
-
-    return {
-        "message" : "Post created successfully",
-        "data" : new_dict
-    }
-
     
 #DELETE OPERATIONS
 @app.delete("/posts/{id}")
