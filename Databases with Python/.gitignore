@@ -1,5 +1,6 @@
-.__pycache__/
-..pytest_cache/
-.models/__pycache__/
+__pycache__/
+pytest_cache/
+models/__pycache__/
 test.py
 seed.py
+conftest.py
