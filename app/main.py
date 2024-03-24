@@ -6,6 +6,10 @@ from random import randrange
 import psycopg
 from psycopg.rows import dict_row
 import time
+from . import models
+from .database import Base
+ 
+
 #instantiating the class
 app = FastAPI()
 
